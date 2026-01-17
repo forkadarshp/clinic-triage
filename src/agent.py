@@ -73,27 +73,47 @@ Respond with ONLY a JSON object containing 'tool' and 'arguments'.
         Handles:
         - Raw JSON
         - JSON in code blocks
-        - JSON with surrounding text
+        - JSON with surrounding text (robust extraction)
         """
-        # Try direct parse first
+        if not text:
+            return None
+
+        # 1. Try direct parse
         try:
             return json.loads(text.strip())
         except json.JSONDecodeError:
             pass
         
-        # Try to find JSON object in text
-        patterns = [
-            r'```json\s*(.*?)\s*```',  # Code block
-            r'```\s*(.*?)\s*```',       # Any code block
-            r'\{[^{}]*"tool"[^{}]*\}',  # Simple object with tool
-            r'\{.*?\}',                  # Any object
-        ]
+        # 2. Extract from code blocks
+        code_block_match = re.search(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
+        if code_block_match:
+            try:
+                return json.loads(code_block_match.group(1).strip())
+            except json.JSONDecodeError:
+                pass
         
-        for pattern in patterns:
-            matches = re.findall(pattern, text, re.DOTALL)
-            for match in matches:
+        # 3. Robust substring search
+        # Find all indices of '{' and '}'
+        # This is strictly better than regex for nested structures
+        brackets_start = [i for i, char in enumerate(text) if char == '{']
+        brackets_end = [i for i, char in enumerate(text) if char == '}']
+        
+        if not brackets_start or not brackets_end:
+            return None
+            
+        # Try to parse from largest possible span to smallest
+        # We assume the relevant JSON is likely the largest object or the first one
+        for start in brackets_start:
+            for end in reversed(brackets_end):
+                if end < start:
+                    continue
+                
+                candidate = text[start : end + 1]
                 try:
-                    return json.loads(match.strip())
+                    data = json.loads(candidate)
+                    # Verify it has required keys to reduce false positives
+                    if isinstance(data, dict) and "tool" in data:
+                        return data
                 except json.JSONDecodeError:
                     continue
         

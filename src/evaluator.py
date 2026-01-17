@@ -76,8 +76,12 @@ def evaluate(
             print(f"[{i+1}/{len(test_data)}] {status} Expected: {expected_tool}, Got: {predicted_tool}")
     
     # Calculate percentages
-    results["json_validity_pct"] = (results["json_valid"] / results["total"]) * 100
-    results["routing_accuracy_pct"] = (results["routing_correct"] / results["total"]) * 100
+    if results["total"] > 0:
+        results["json_validity_pct"] = (results["json_valid"] / results["total"]) * 100
+        results["routing_accuracy_pct"] = (results["routing_correct"] / results["total"]) * 100
+    else:
+        results["json_validity_pct"] = 0.0
+        results["routing_accuracy_pct"] = 0.0
     
     return results
 
@@ -88,6 +92,12 @@ def print_report(results: dict):
     print("📊 EVALUATION REPORT")
     print("=" * 60)
     
+    # ... (rest of function is fine, assuming it wasn't replaced, but I need to be careful with replace_file_content chunking)
+    # Actually, I should just replace the calculation block and add the main block at end.
+    # The tool requires StartLine/EndLine.
+    # Let's split into two edits or one large one? The file is small.
+    # I'll replace from the calculation (line 79) to the end.
+
     print(f"\n📈 Summary ({results['total']} test cases)")
     print("-" * 40)
     print(f"  JSON Validity:    {results['json_valid']}/{results['total']} ({results['json_validity_pct']:.1f}%)")
@@ -143,7 +153,11 @@ def run_evaluation(
     
     if not agent._model_loaded:
         print("Loading model from checkpoint...")
-        agent.load_model()
+        try:
+            agent.load_model()
+        except Exception as e:
+            print(f"⚠️ Could not load model: {e}")
+            print("Running in mock mode (failures expected)...")
     
     print("Loading test data...")
     test_data = load_test_data(test_data_path)
@@ -155,3 +169,7 @@ def run_evaluation(
     print_report(results)
     
     return results
+
+
+if __name__ == "__main__":
+    run_evaluation()

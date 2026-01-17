@@ -11,44 +11,101 @@ from . import config
 
 
 # =============================================================================
-# Prompt Templates
+# Prompt Templates - Optimized for Training Data Quality
 # =============================================================================
-SYSTEM_PROMPT = """You are a medical data generator. Generate realistic patient intake notes and their correct triage classifications.
+SYSTEM_PROMPT = """You are a clinical AI data generator creating high-quality training examples for a patient triage system.
 
-The 3 tools are:
-1. trigger_emergency_response - Life-threatening (heart attack, stroke, trauma, severe bleeding)
-   Arguments: {"location": "string", "severity": "CRITICAL"}
+TASK: Generate realistic, diverse patient intake notes with correct triage classifications.
 
-2. schedule_urgent_consult - Serious but non-fatal (high fever, fractures, severe pain)
-   Arguments: {"department": "string", "symptoms": ["string", ...]}
+STRICT RULES:
+1. Output ONLY valid JSON matching the exact schema below
+2. Use ONLY these 3 tools - no other tool names are allowed
+3. The "query" must be a realistic clinical intake note with varied writing styles
+4. Arguments must match the EXACT schema for each tool
+5. The "severity" for emergencies must ALWAYS be exactly "CRITICAL"
+6. The "symptoms" for urgent cases must ALWAYS be a JSON array of strings
 
-3. routine_care_referral - Chronic conditions, refills, checkups
-   Arguments: {"type": "string", "specialty": "string"}
+===== TOOL SCHEMAS =====
 
-Output JSON format:
-{"query": "patient intake note...", "tool": "tool_name", "arguments": {...}}"""
+TOOL 1: trigger_emergency_response
+Use when: Life-threatening conditions requiring immediate intervention
+Examples: Active MI, stroke (within window), major trauma, anaphylaxis, cardiac arrest, severe hemorrhage, respiratory failure
+Arguments: {"location": "<specific patient location>", "severity": "CRITICAL"}
+
+TOOL 2: schedule_urgent_consult
+Use when: Serious conditions needing same-day evaluation but patient is stable
+Examples: High fever in children, suspected fractures, deep lacerations, acute non-cardiac chest pain, severe infections, kidney stones
+Arguments: {"department": "<medical specialty>", "symptoms": ["symptom1", "symptom2", ...]}
+
+TOOL 3: routine_care_referral
+Use when: Non-urgent, planned care
+Examples: Medication refills, annual physicals, chronic disease follow-ups, preventive screenings, vaccination appointments
+Arguments: {"type": "<visit type>", "specialty": "<medical specialty>"}
+
+===== GOLD EXAMPLES =====
+
+{"query": "78yo male found unresponsive at bus stop by bystander, agonal breathing, no pulse detected, CPR initiated by off-duty nurse. EMS en route. Location: Main St bus shelter near City Hall.", "tool": "trigger_emergency_response", "arguments": {"location": "Main St bus shelter near City Hall", "severity": "CRITICAL"}}
+
+{"query": "32yo female, twisted right ankle during recreational soccer 2 hours ago. Reports hearing a 'pop' at time of injury. Significant lateral swelling, ecchymosis developing, unable to bear weight. Pain 7/10, no numbness. Ice applied.", "tool": "schedule_urgent_consult", "arguments": {"department": "Orthopedics", "symptoms": ["ankle swelling", "inability to bear weight", "ecchymosis", "acute pain"]}}
+
+{"query": "Established patient here for quarterly diabetes management. Last A1c 7.1%, down from 7.4%. Home glucose logs show good control. Needs metformin 1000mg refill x90 days. No new symptoms, feet exam due.", "tool": "routine_care_referral", "arguments": {"type": "chronic disease follow-up", "specialty": "Endocrinology"}}
+
+===== OUTPUT FORMAT =====
+{"query": "<detailed patient intake note>", "tool": "<exact tool name>", "arguments": {<tool-specific arguments>}}
+
+NOW GENERATE ONE TRAINING EXAMPLE:"""
 
 GENERATION_PROMPTS = [
-    # Emergency cases
-    "Generate a patient intake note for a cardiac emergency. Include realistic details.",
-    "Generate a patient intake note for a severe trauma case from a car accident.",
-    "Generate a patient intake note for symptoms indicating a stroke.",
-    "Generate a patient intake note for severe allergic reaction (anaphylaxis).",
-    "Generate a patient intake note for a patient with severe chest pain and shortness of breath.",
+    # === EMERGENCY CASES (varied presentations) ===
+    "Generate intake note: elderly patient with sudden onset stroke symptoms (use FAST criteria). Vary the location.",
+    "Generate intake note: young adult in anaphylaxis from unknown allergen at a restaurant.",
+    "Generate intake note: construction worker with severe crush injury, written from paramedic perspective.",
+    "Generate intake note: pregnant woman with heavy vaginal bleeding and abdominal pain.",
+    "Generate intake note: child found unresponsive after near-drowning incident at home pool.",
+    "Generate intake note: patient with acute MI symptoms but atypical presentation (diabetic, female, or elderly).",
+    "Generate intake note: severe asthma attack with impending respiratory failure.",
+    "Generate intake note: gunshot wound victim, bystander report style.",
+    "Generate intake note: patient with sudden severe headache 'worst of life' (possible SAH).",
+    "Generate intake note: electrocution injury at workplace.",
     
-    # Urgent cases
-    "Generate a patient intake note for a patient with a suspected bone fracture.",
-    "Generate a patient intake note for a child with high fever (104°F).",
-    "Generate a patient intake note for severe abdominal pain.",
-    "Generate a patient intake note for a deep laceration requiring stitches.",
-    "Generate a patient intake note for difficulty breathing with wheezing.",
+    # === URGENT CASES (varied presentations) ===
+    "Generate intake note: toddler with 103°F fever for 24 hours, parent's description style.",
+    "Generate intake note: elderly fall with hip pain, unable to walk, nursing home staff report.",
+    "Generate intake note: young athlete with possible ACL tear during game.",
+    "Generate intake note: adult with severe ear pain and discharge, written informally.",
+    "Generate intake note: patient with kidney stone symptoms, writhing in pain.",
+    "Generate intake note: deep dog bite on forearm requiring evaluation.",
+    "Generate intake note: teenager with severe sore throat, difficulty swallowing (possible peritonsillar abscess).",
+    "Generate intake note: adult with sudden vision changes in one eye.",
+    "Generate intake note: patient with cellulitis spreading up leg with fever.",
+    "Generate intake note: child who swallowed a small battery 1 hour ago.",
     
-    # Routine cases
-    "Generate a patient intake note for a diabetes medication refill.",
-    "Generate a patient intake note for an annual physical checkup.",
-    "Generate a patient intake note for chronic back pain follow-up.",
-    "Generate a patient intake note for blood pressure management.",
-    "Generate a patient intake note for a routine skin mole check.",
+    # === ROUTINE CASES (varied presentations) ===
+    "Generate intake note: middle-aged patient for annual wellness visit, brief note style.",
+    "Generate intake note: patient requesting birth control prescription renewal.",
+    "Generate intake note: elderly patient for blood pressure medication titration.",
+    "Generate intake note: patient scheduling colonoscopy screening at age 50.",
+    "Generate intake note: follow-up for well-controlled hypothyroidism.",
+    "Generate intake note: patient with stable chronic back pain, needs PT referral.",
+    "Generate intake note: child for school sports physical examination.",
+    "Generate intake note: patient requesting allergy shot continuation.",
+    "Generate intake note: new patient intake for established anxiety disorder, stable on meds.",
+    "Generate intake note: patient for routine diabetic eye exam referral.",
+    
+    # === EDGE CASES (teach model boundaries) ===
+    "Generate intake note: chest pain that is clearly musculoskeletal (urgent, not emergency).",
+    "Generate intake note: low-grade fever for 5 days with mild symptoms (routine vs urgent boundary).",
+    "Generate intake note: headache with some concerning features but stable vitals (urgent consult).",
+    "Generate intake note: elderly patient with confusion but no focal deficits, family unsure of timeline.",
+    "Generate intake note: abdominal pain that sounds like constipation, not surgical.",
+    "Generate intake note: patient with anxiety presenting with chest tightness and palpitations (not cardiac).",
+    
+    # === DIVERSITY IN STYLE ===
+    "Generate intake note: written like a triage nurse's quick assessment.",
+    "Generate intake note: written like a detailed EMT handoff report.",
+    "Generate intake note: written like a family member describing symptoms over phone.",
+    "Generate intake note: written with heavy use of medical abbreviations.",
+    "Generate intake note: written in simple layman's terms by patient themselves."
 ]
 
 
@@ -71,6 +128,64 @@ def _extract_json(content: str) -> Optional[dict]:
         return None
 
 
+VALID_TOOLS = {
+    "trigger_emergency_response",
+    "schedule_urgent_consult", 
+    "routine_care_referral"
+}
+
+
+def _validate_example(data: dict) -> bool:
+    """
+    Validate that a generated example matches the required schema.
+    
+    Returns True if valid, False otherwise.
+    """
+    if not data:
+        return False
+    
+    # Check required top-level keys
+    if not all(k in data for k in ["query", "tool", "arguments"]):
+        return False
+    
+    # Validate query is non-empty string
+    if not isinstance(data.get("query"), str) or len(data["query"]) < 20:
+        return False
+    
+    # Validate tool name
+    tool = data.get("tool")
+    if tool not in VALID_TOOLS:
+        return False
+    
+    args = data.get("arguments", {})
+    if not isinstance(args, dict):
+        return False
+    
+    # Validate tool-specific arguments
+    if tool == "trigger_emergency_response":
+        if not isinstance(args.get("location"), str) or not args["location"]:
+            return False
+        if args.get("severity") != "CRITICAL":
+            return False
+            
+    elif tool == "schedule_urgent_consult":
+        if not isinstance(args.get("department"), str) or not args["department"]:
+            return False
+        symptoms = args.get("symptoms")
+        if not isinstance(symptoms, list) or len(symptoms) == 0:
+            return False
+        if not all(isinstance(s, str) and s for s in symptoms):
+            return False
+            
+    elif tool == "routine_care_referral":
+        if not isinstance(args.get("type"), str) or not args["type"]:
+            return False
+        if not isinstance(args.get("specialty"), str) or not args["specialty"]:
+            return False
+    
+    return True
+
+
 async def generate_with_openai_async(
     prompt: str,
     system_prompt: str,
@@ -79,9 +194,9 @@ async def generate_with_openai_async(
     reasoning_effort: str = None,
 ) -> Optional[dict]:
     """
-    Generate using OpenAI's responses API with reasoning support.
+    Generate using OpenAI API.
     
-    Uses the new `client.responses.create` API for GPT-5.2.
+    Uses responses.create for GPT-5.x, chat.completions for GPT-4.x.
     """
     try:
         from openai import AsyncOpenAI
@@ -90,16 +205,28 @@ async def generate_with_openai_async(
         model = model or config.OPENAI_MODEL
         reasoning_effort = reasoning_effort or config.OPENAI_REASONING_EFFORT
         
-        full_input = f"{system_prompt}\n\nTask: {prompt}"
+        full_input = f"{system_prompt}\n\nTask: {prompt}\n\nRespond with valid JSON only."
         
-        response = await client.responses.create(
-            model=model,
-            input=full_input,
-            reasoning={"effort": reasoning_effort}
-        )
+        # GPT-5.x uses responses API, GPT-4.x uses chat completions
+        if model.startswith("gpt-5"):
+            response = await client.responses.create(
+                model=model,
+                input=full_input,
+                reasoning={"effort": reasoning_effort}
+            )
+            content = response.output_text if hasattr(response, 'output_text') else str(response)
+        else:
+            # GPT-4.x uses chat completions with json_object format
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+            )
+            content = response.choices[0].message.content
         
-        # Extract text from response
-        content = response.output_text if hasattr(response, 'output_text') else str(response)
         return _extract_json(content)
         
     except Exception as e:
@@ -200,19 +327,24 @@ async def generate_training_data_async(
     
     results = await tqdm_asyncio.gather(*tasks, desc="Generating")
     
-    # Filter valid examples
-    examples = [
-        r for r in results 
-        if r and all(k in r for k in ["query", "tool", "arguments"])
-    ]
+    # Filter and validate examples
+    valid_examples = []
+    invalid_count = 0
+    for r in results:
+        if r and _validate_example(r):
+            valid_examples.append(r)
+        else:
+            invalid_count += 1
+    
+    print(f"Validation: {len(valid_examples)} valid, {invalid_count} rejected")
     
     # Save to JSONL
     with open(output_path, "w") as f:
-        for example in examples:
+        for example in valid_examples:
             f.write(json.dumps(example) + "\n")
     
-    print(f"Saved {len(examples)} valid examples to {output_path}")
-    return examples
+    print(f"Saved {len(valid_examples)} examples to {output_path}")
+    return valid_examples
 
 
 def generate_training_data(

@@ -46,3 +46,9 @@ outputs/
 *.bin
 *.safetensors
 data/train.jsonl
+
+# Agent rules
+.agent/
+
+.agent-rules/
+.env

@@ -54,7 +54,7 @@ SEED = 42
 # =============================================================================
 NUM_TRAINING_EXAMPLES = 100
 GEMINI_MODEL = "gemini-1.5-flash"
-OPENAI_MODEL = "gpt-5.2"
+OPENAI_MODEL = "gpt-4.1"
 OPENAI_REASONING_EFFORT = "medium"  # "none", "low", "medium", "high"
 DATA_GEN_PROVIDER = "openai"  # "gemini" or "openai"
 

@@ -69,6 +69,13 @@ def create_prompt_template(tokenizer):
     """
     return """<|im_start|>system
 You are a clinical triage agent. Analyze patient intake notes and route to the correct tool.
+
+Available tools:
+1. trigger_emergency_response - Life-threatening cases
+2. schedule_urgent_consult - Serious but non-fatal
+3. routine_care_referral - Chronic conditions, checkups
+
+Respond with ONLY a JSON object containing 'tool' and 'arguments'.
 <|im_end|>
 <|im_start|>user
 {instruction}

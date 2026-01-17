@@ -383,12 +383,8 @@ def load_training_data(path: Optional[Path] = None) -> list[dict]:
 
 def format_for_training(example: dict) -> dict:
     """Format a single example for SFT training."""
-    instruction = f"""You are a clinical triage agent. Analyze the patient intake note and route to the appropriate tool.
-
-Patient Note:
-{example['query']}
-
-Respond with a JSON object containing 'tool' and 'arguments'."""
+    # Instruction is just the query, as the system prompt handles the task definition
+    instruction = example["query"]
 
     output = json.dumps({
         "tool": example["tool"],

@@ -17,3 +17,5 @@ openai>=1.0.0
 
 # Jupyter/Colab
 ipywidgets>=8.1.0
+
+nest_asyncio>=1.6.0

@@ -357,17 +357,38 @@ def generate_training_data(
     """
     Sync wrapper for generate_training_data_async.
     
-    For use in notebooks/scripts that don't have an event loop.
+    Handles running in notebooks (with nest_asyncio) or scripts.
     """
-    return asyncio.run(
-        generate_training_data_async(
-            num_examples=num_examples,
-            output_path=output_path,
-            api_key=api_key,
-            provider=provider,
-            max_concurrent=max_concurrent,
+    try:
+        return asyncio.run(
+            generate_training_data_async(
+                num_examples=num_examples,
+                output_path=output_path,
+                api_key=api_key,
+                provider=provider,
+                max_concurrent=max_concurrent,
+            )
         )
-    )
+    except RuntimeError as e:
+        if "asyncio.run() cannot be called from a running event loop" in str(e):
+            # Fallback for Jupyter/Colab
+            try:
+                import nest_asyncio
+                nest_asyncio.apply()
+                return asyncio.run(
+                    generate_training_data_async(
+                        num_examples=num_examples,
+                        output_path=output_path,
+                        api_key=api_key,
+                        provider=provider,
+                        max_concurrent=max_concurrent,
+                    )
+                )
+            except ImportError:
+                raise RuntimeError(
+                    "Running in a notebook/loop? Please run `pip install nest_asyncio` to fix this error."
+                ) from e
+        raise e
 
 
 def load_training_data(path: Optional[Path] = None) -> list[dict]:

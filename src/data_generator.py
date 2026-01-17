@@ -360,7 +360,22 @@ def generate_training_data(
     Handles running in notebooks (with nest_asyncio) or scripts.
     """
     try:
-        return asyncio.run(
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+        
+    if loop and loop.is_running():
+        # Jupyter/Colab env
+        try:
+            import nest_asyncio
+            nest_asyncio.apply()
+        except ImportError:
+            raise ImportError(
+                "Running in a notebook (existing event loop detected). "
+                "Please run `!pip install nest_asyncio` to fix this error."
+            )
+            
+        return loop.run_until_complete(
             generate_training_data_async(
                 num_examples=num_examples,
                 output_path=output_path,
@@ -369,26 +384,17 @@ def generate_training_data(
                 max_concurrent=max_concurrent,
             )
         )
-    except RuntimeError as e:
-        if "asyncio.run() cannot be called from a running event loop" in str(e):
-            # Fallback for Jupyter/Colab
-            try:
-                import nest_asyncio
-                nest_asyncio.apply()
-                return asyncio.run(
-                    generate_training_data_async(
-                        num_examples=num_examples,
-                        output_path=output_path,
-                        api_key=api_key,
-                        provider=provider,
-                        max_concurrent=max_concurrent,
-                    )
-                )
-            except ImportError:
-                raise RuntimeError(
-                    "Running in a notebook/loop? Please run `pip install nest_asyncio` to fix this error."
-                ) from e
-        raise e
+    
+    # Standard script env
+    return asyncio.run(
+        generate_training_data_async(
+            num_examples=num_examples,
+            output_path=output_path,
+            api_key=api_key,
+            provider=provider,
+            max_concurrent=max_concurrent,
+        )
+    )
 
 
 def load_training_data(path: Optional[Path] = None) -> list[dict]:

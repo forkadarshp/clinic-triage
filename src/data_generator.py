@@ -306,8 +306,17 @@ async def generate_training_data_async(
     if api_key is None:
         env_key = "OPENAI_API_KEY" if provider == "openai" else "GOOGLE_API_KEY"
         api_key = os.environ.get(env_key)
+        
+        # Fallback: Try Colab Secrets
         if not api_key:
-            raise ValueError(f"Set {env_key} environment variable or pass api_key argument")
+            try:
+                from google.colab import userdata
+                api_key = userdata.get(env_key)
+            except (ImportError, Exception):
+                pass
+
+        if not api_key:
+            raise ValueError(f"Set {env_key} environment variable, add it to Colab Secrets, or pass api_key argument")
     
     output_path = output_path or config.TRAIN_DATA_PATH
     

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from . import config
+from . import prompts
 from .data_generator import load_training_data, format_for_training
 
 
@@ -67,29 +68,7 @@ def create_prompt_template(tokenizer):
     Returns:
         Formatted prompt template string
     """
-    return """<|im_start|>system
-You are a clinical triage agent. Analyze patient intake notes and route to exactly one of these tools.
-
-TOOL 1: trigger_emergency_response
-When: Life-threatening emergencies (heart attack, stroke, severe trauma, anaphylaxis)
-JSON: {{"tool": "trigger_emergency_response", "arguments": {{"location": "<patient location>", "severity": "CRITICAL"}}}}
-
-TOOL 2: schedule_urgent_consult
-When: Serious but stable (high fever, fractures, deep cuts, infections)
-JSON: {{"tool": "schedule_urgent_consult", "arguments": {{"department": "<specialty>", "symptoms": ["symptom1", "symptom2"]}}}}
-
-TOOL 3: routine_care_referral
-When: Non-urgent (checkups, refills, chronic disease management)
-JSON: {{"tool": "routine_care_referral", "arguments": {{"type": "<visit type>", "specialty": "<specialty>"}}}}
-
-OUTPUT: Respond with ONLY the JSON object, no other text.
-<|im_end|>
-<|im_start|>user
-{instruction}
-<|im_end|>
-<|im_start|>assistant
-{output}
-<|im_end|>"""
+    return prompts.PROMPT_TEMPLATE
 
 
 def prepare_dataset(tokenizer, train_data_path: Optional[Path] = None):
@@ -106,7 +85,27 @@ def prepare_dataset(tokenizer, train_data_path: Optional[Path] = None):
     from datasets import Dataset
     
     raw_data = load_training_data(train_data_path)
-    formatted_data = [format_for_training(ex) for ex in raw_data]
+
+    # Balance classes to improve routing accuracy on small datasets
+    from collections import defaultdict
+    import random
+
+    by_tool = defaultdict(list)
+    for example in raw_data:
+        by_tool[example.get("tool")].append(example)
+
+    max_count = max(len(items) for items in by_tool.values()) if by_tool else 0
+    balanced = []
+    rng = random.Random(config.SEED)
+    for items in by_tool.values():
+        if not items:
+            continue
+        balanced.extend(items)
+        if len(items) < max_count:
+            balanced.extend(rng.choices(items, k=max_count - len(items)))
+
+    rng.shuffle(balanced)
+    formatted_data = [format_for_training(ex) for ex in balanced]
     
     prompt_template = create_prompt_template(tokenizer)
     

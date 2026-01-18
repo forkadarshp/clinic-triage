@@ -38,6 +38,7 @@ src/
 |--------|-------|
 | JSON Validity | TBD |
 | Routing Accuracy | TBD |
+| Routing MSE | TBD |
 
 ## 🛠️ Tech Stack
 

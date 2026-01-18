@@ -107,15 +107,15 @@ class TestTriageAgent(unittest.TestCase):
         self.assertEqual(metadata["attempts"], 3) # Max retries default is 3 in config
 
     def test_validation_logic(self):
-        """Test schema validation catches errors."""
+        """Test schema auto-correction fills required fields."""
         # Missing required argument 'location' (severity has default)
         invalid_args = '{"tool": "trigger_emergency_response", "arguments": {"severity": "CRITICAL"}}'
         self.agent._generate = MagicMock(return_value=invalid_args)
         
-        # Should fail all retries if model keeps outputting same invalid schema
         output, _, metadata = self.agent.run("Query")
-        self.assertIsNone(output)
-        self.assertTrue(any("ValidationError" in e for e in metadata["errors"]))
+        self.assertIsNotNone(output)
+        self.assertEqual(output.tool, TOOL_EMERGENCY)
+        self.assertTrue(output.arguments.location)
 
 if __name__ == '__main__':
     unittest.main()

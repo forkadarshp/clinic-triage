@@ -29,9 +29,9 @@ LOAD_IN_4BIT = True
 # =============================================================================
 # LoRA Configuration
 # =============================================================================
-LORA_R = 32
+LORA_R = 16
 LORA_ALPHA = 32  # Match r for function calling tasks (research-backed)
-LORA_DROPOUT = 0.05  # Small dropout to prevent overfitting on small data
+LORA_DROPOUT = 0.0  # Favor memorization for max routing accuracy on small data
 LORA_TARGET_MODULES = [
     "q_proj", "k_proj", "v_proj", "o_proj",
     "gate_proj", "up_proj", "down_proj",
@@ -40,13 +40,13 @@ LORA_TARGET_MODULES = [
 # =============================================================================
 # Training Hyperparameters
 # =============================================================================
-NUM_TRAIN_EPOCHS = 10  # More epochs needed for ~80 examples
-LEARNING_RATE = 5e-5  # Lower LR for stable LoRA training (was 2e-4)
+NUM_TRAIN_EPOCHS = 20  # More epochs to fit small dataset well
+LEARNING_RATE = 1e-4  # Slightly higher LR to learn routing quickly
 BATCH_SIZE = 8  # Moderate batch size for stability
-GRADIENT_ACCUMULATION_STEPS = 4  # Effective batch = 8*4 = 32
-WARMUP_STEPS = 50  # More warmup for small datasets
+GRADIENT_ACCUMULATION_STEPS = 1  # More updates per epoch on small data
+WARMUP_STEPS = 5  # Short warmup for small datasets
 MAX_STEPS = -1  # -1 = use epochs
-WEIGHT_DECAY = 0.01
+WEIGHT_DECAY = 0.0
 SEED = 42
 
 # =============================================================================

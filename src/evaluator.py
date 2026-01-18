@@ -36,6 +36,11 @@ def evaluate(
     Returns:
         Dict with evaluation metrics
     """
+    tool_index = {tool.value: idx for idx, tool in enumerate(ToolName)}
+    max_error_sq = (len(tool_index) - 1) ** 2
+    mse_sum = 0.0
+    mse_count = 0
+
     results = {
         "total": len(test_data),
         "json_valid": 0,
@@ -59,6 +64,17 @@ def evaluate(
         routing_correct = predicted_tool == expected_tool
         if routing_correct:
             results["routing_correct"] += 1
+
+        # Mean squared error over tool index (penalize invalid tools)
+        expected_index = tool_index.get(expected_tool)
+        if expected_index is not None:
+            predicted_index = tool_index.get(predicted_tool)
+            if predicted_index is None:
+                squared_error = float(max_error_sq)
+            else:
+                squared_error = float((predicted_index - expected_index) ** 2)
+            mse_sum += squared_error
+            mse_count += 1
         
         detail = {
             "index": i + 1,
@@ -82,6 +98,11 @@ def evaluate(
     else:
         results["json_validity_pct"] = 0.0
         results["routing_accuracy_pct"] = 0.0
+
+    if mse_count > 0:
+        results["routing_mse"] = mse_sum / mse_count
+    else:
+        results["routing_mse"] = 0.0
     
     return results
 
@@ -102,6 +123,7 @@ def print_report(results: dict):
     print("-" * 40)
     print(f"  JSON Validity:    {results['json_valid']}/{results['total']} ({results['json_validity_pct']:.1f}%)")
     print(f"  Routing Accuracy: {results['routing_correct']}/{results['total']} ({results['routing_accuracy_pct']:.1f}%)")
+    print(f"  Routing MSE:      {results['routing_mse']:.3f}")
     
     # Per-tool breakdown
     tool_stats = {t.value: {"total": 0, "correct": 0} for t in ToolName}

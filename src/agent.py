@@ -1,10 +1,12 @@
 """Triage agent with self-correction and retry logic."""
 
+import ast
 import json
 import re
 from typing import Optional, Tuple
 
 from . import config
+from . import prompts
 from .schemas import parse_triage_output, get_mock_response, TriageOutput
 
 
@@ -18,6 +20,26 @@ class TriageAgent:
     - Retry logic for invalid outputs
     - Mock execution responses
     """
+
+    _EMERGENCY_KEYWORDS = (
+        "heart attack", "cardiac arrest", "no pulse", "unresponsive", "not breathing",
+        "stroke", "facial droop", "slurred speech", "severe bleeding", "gunshot",
+        "severe trauma", "anaphylaxis", "respiratory failure", "seizure",
+        "crushing chest pain", "sudden collapse",
+    )
+    _URGENT_KEYWORDS = (
+        "fracture", "broken", "deep cut", "laceration", "high fever", "104", "103",
+        "kidney stone", "severe pain", "cellulitis", "infection", "vision loss",
+        "abdominal pain", "vomiting", "swelling",
+    )
+    _ROUTINE_KEYWORDS = (
+        "refill", "checkup", "annual", "physical", "follow-up", "screening",
+        "vaccination", "stable", "routine", "lab work", "chronic",
+    )
+    _SYMPTOM_KEYWORDS = (
+        "fever", "pain", "swelling", "vomiting", "nausea", "dizziness",
+        "headache", "cough", "shortness of breath", "weakness", "rash",
+    )
     
     def __init__(self, model=None, tokenizer=None):
         """
@@ -48,30 +70,36 @@ class TriageAgent:
         FastLanguageModel.for_inference(self.model)
         self._model_loaded = True
     
-    def _build_prompt(self, query: str) -> str:
-        """Build the inference prompt - MUST match training prompt exactly."""
-        return f"""<|im_start|>system
-You are a clinical triage agent. Analyze patient intake notes and route to exactly one of these tools.
-TOOL 1: trigger_emergency_response
-When: Life-threatening emergencies (heart attack, stroke, severe trauma, anaphylaxis)
-JSON: {{"tool": "trigger_emergency_response", "arguments": {{"location": "<patient location>", "severity": "CRITICAL"}}}}
+    def _build_prompt(self, query: str, error: Optional[str] = None) -> str:
+        """Build the inference prompt aligned with the training template."""
+        return prompts.build_inference_prompt(query, error=error)
 
-TOOL 2: schedule_urgent_consult
-When: Serious but stable (high fever, fractures, deep cuts, infections)
-JSON: {{"tool": "schedule_urgent_consult", "arguments": {{"department": "<specialty>", "symptoms": ["symptom1", "symptom2"]}}}}
+    def _parse_candidate(self, candidate: str) -> Optional[dict]:
+        """Parse a JSON-like candidate string into a dict."""
+        candidate = candidate.strip()
+        if not candidate:
+            return None
 
-TOOL 3: routine_care_referral
-When: Non-urgent (checkups, refills, chronic disease management)
-JSON: {{"tool": "routine_care_referral", "arguments": {{"type": "<visit type>", "specialty": "<specialty>"}}}}
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
 
+        try:
+            data = ast.literal_eval(candidate)
+            if isinstance(data, dict):
+                return data
+        except (ValueError, SyntaxError):
+            pass
 
-OUTPUT: Respond with ONLY the JSON object, no other text.
-<|im_end|>
-<|im_start|>user
-{query}
-<|im_end|>
-<|im_start|>assistant
-"""
+        fixed = re.sub(r",\s*([}\]])", r"\1", candidate)
+        if "'" in fixed and '"' not in fixed:
+            fixed = fixed.replace("'", '"')
+
+        try:
+            return json.loads(fixed)
+        except json.JSONDecodeError:
+            return None
     
     def _extract_json(self, text: str) -> Optional[dict]:
         """
@@ -86,18 +114,16 @@ OUTPUT: Respond with ONLY the JSON object, no other text.
             return None
 
         # 1. Try direct parse
-        try:
-            return json.loads(text.strip())
-        except json.JSONDecodeError:
-            pass
+        parsed = self._parse_candidate(text)
+        if parsed is not None:
+            return parsed
         
         # 2. Extract from code blocks
-        code_block_match = re.search(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
+        code_block_match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
         if code_block_match:
-            try:
-                return json.loads(code_block_match.group(1).strip())
-            except json.JSONDecodeError:
-                pass
+            parsed = self._parse_candidate(code_block_match.group(1))
+            if parsed is not None:
+                return parsed
         
         # 3. Robust substring search
         # Find all indices of '{' and '}'
@@ -116,15 +142,147 @@ OUTPUT: Respond with ONLY the JSON object, no other text.
                     continue
                 
                 candidate = text[start : end + 1]
-                try:
-                    data = json.loads(candidate)
-                    # Verify it has required keys to reduce false positives
-                    if isinstance(data, dict) and "tool" in data:
-                        return data
-                except json.JSONDecodeError:
-                    continue
+                data = self._parse_candidate(candidate)
+                if isinstance(data, dict) and "tool" in data:
+                    return data
         
         return None
+
+    def _guess_tool_from_text(self, text: str) -> Optional[str]:
+        """Guess the tool from raw text using tool names or keywords."""
+        if not text:
+            return None
+
+        lower = text.lower()
+        for tool in config.VALID_TOOLS:
+            if tool in lower:
+                return tool
+
+        if any(keyword in lower for keyword in self._EMERGENCY_KEYWORDS):
+            return config.TOOL_EMERGENCY
+        if any(keyword in lower for keyword in self._URGENT_KEYWORDS):
+            return config.TOOL_URGENT
+        if any(keyword in lower for keyword in self._ROUTINE_KEYWORDS):
+            return config.TOOL_ROUTINE
+
+        return None
+
+    def _extract_location(self, query: str) -> Optional[str]:
+        """Extract a location hint from the query text."""
+        match = re.search(r"(?:location|address)\s*[:\-]\s*([^\n\.]+)", query, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        return None
+
+    def _extract_symptoms(self, query: str) -> list[str]:
+        lower = query.lower()
+        symptoms = [kw for kw in self._SYMPTOM_KEYWORDS if kw in lower]
+        if symptoms:
+            return symptoms[:4]
+        return ["unspecified symptoms"]
+
+    def _guess_department(self, query: str) -> str:
+        lower = query.lower()
+        if "fracture" in lower or "broken" in lower or "orthopedic" in lower:
+            return "Orthopedics"
+        if "pregnan" in lower or "ob/gyn" in lower or "missed period" in lower:
+            return "OB/GYN"
+        if "kidney" in lower or "flank" in lower:
+            return "Urology"
+        if "vision" in lower or "eye" in lower:
+            return "Ophthalmology"
+        if "child" in lower or "pediatric" in lower:
+            return "Pediatrics"
+        return "Urgent Care"
+
+    def _guess_specialty(self, query: str) -> str:
+        lower = query.lower()
+        if "diabetes" in lower:
+            return "Endocrinology"
+        if "blood pressure" in lower or "hypertension" in lower:
+            return "Internal Medicine"
+        if "skin" in lower or "rash" in lower:
+            return "Dermatology"
+        if "back pain" in lower:
+            return "Physical Therapy"
+        return "Family Medicine"
+
+    def _guess_visit_type(self, query: str) -> str:
+        lower = query.lower()
+        if "refill" in lower:
+            return "prescription refill"
+        if "annual" in lower or "physical" in lower:
+            return "annual physical"
+        if "screening" in lower:
+            return "screening visit"
+        if "follow-up" in lower:
+            return "follow-up visit"
+        return "routine visit"
+
+    def _coerce_output(self, parsed: dict, query: str) -> Optional[dict]:
+        """Fill missing fields to satisfy schema requirements."""
+        if not isinstance(parsed, dict):
+            return None
+
+        tool = parsed.get("tool")
+        if tool not in config.VALID_TOOLS:
+            tool = self._guess_tool_from_text(str(tool)) or self._guess_tool_from_text(query)
+        if tool not in config.VALID_TOOLS:
+            return None
+
+        args = parsed.get("arguments")
+        if not isinstance(args, dict):
+            args = {}
+
+        if tool == config.TOOL_EMERGENCY:
+            location = args.get("location")
+            if not isinstance(location, str) or not location.strip():
+                location = self._extract_location(query) or "Unknown location"
+            return {
+                "tool": tool,
+                "arguments": {
+                    "location": location,
+                    "severity": "CRITICAL",
+                },
+            }
+
+        if tool == config.TOOL_URGENT:
+            department = args.get("department")
+            if not isinstance(department, str) or not department.strip():
+                department = self._guess_department(query)
+            symptoms = args.get("symptoms")
+            if not isinstance(symptoms, list) or not symptoms:
+                symptoms = self._extract_symptoms(query)
+            return {
+                "tool": tool,
+                "arguments": {
+                    "department": department,
+                    "symptoms": symptoms,
+                },
+            }
+
+        if tool == config.TOOL_ROUTINE:
+            visit_type = args.get("type")
+            if not isinstance(visit_type, str) or not visit_type.strip():
+                visit_type = self._guess_visit_type(query)
+            specialty = args.get("specialty")
+            if not isinstance(specialty, str) or not specialty.strip():
+                specialty = self._guess_specialty(query)
+            return {
+                "tool": tool,
+                "arguments": {
+                    "type": visit_type,
+                    "specialty": specialty,
+                },
+            }
+
+        return None
+
+    def _infer_output_from_text(self, text: str, query: str) -> Optional[dict]:
+        tool = self._guess_tool_from_text(text) or self._guess_tool_from_text(query)
+        if not tool:
+            return None
+        return self._coerce_output({"tool": tool, "arguments": {}}, query)
     
     def _generate(self, prompt: str) -> str:
         """Generate model response with optimized inference."""
@@ -170,12 +328,14 @@ OUTPUT: Respond with ONLY the JSON object, no other text.
             "raw_outputs": [],
         }
         
-        prompt = self._build_prompt(query)
-        
+        error_context = None
+
         for attempt in range(config.MAX_RETRIES):
             metadata["attempts"] = attempt + 1
             
             try:
+                prompt = self._build_prompt(query, error=error_context)
+
                 # Generate response
                 raw_output = self._generate(prompt)
                 metadata["raw_outputs"].append(raw_output)
@@ -183,7 +343,11 @@ OUTPUT: Respond with ONLY the JSON object, no other text.
                 # Extract JSON
                 parsed = self._extract_json(raw_output)
                 if parsed is None:
-                    raise ValueError(f"Could not extract JSON from: {raw_output[:100]}...")
+                    parsed = self._infer_output_from_text(raw_output, query)
+
+                parsed = self._coerce_output(parsed, query)
+                if parsed is None:
+                    raise ValueError(f"Could not extract valid JSON from: {raw_output[:100]}...")
                 
                 # Validate with Pydantic
                 validated = parse_triage_output(parsed)
@@ -198,7 +362,7 @@ OUTPUT: Respond with ONLY the JSON object, no other text.
                 
                 # Add error context to prompt for retry
                 if attempt < config.MAX_RETRIES - 1:
-                    prompt += f"\n\nError: {str(e)}. Please output valid JSON with 'tool' and 'arguments'.\n<|im_start|>assistant\n"
+                    error_context = str(e)
         
         # All retries failed
         return None, "[System] ⚠️ Triage failed after multiple attempts.", metadata

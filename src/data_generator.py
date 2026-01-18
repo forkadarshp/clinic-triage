@@ -325,6 +325,13 @@ async def generate_training_data_async(
         except Exception as e:
             print(f"⚠️  Error reading existing data: {e}, regenerating...")
     
+    # If user wanted existing data but we got here, the file doesn't exist or failed to load
+    if force_use_existing:
+        raise FileNotFoundError(
+            f"Pre-generated data not found or invalid: {output_path}\n"
+            f"Please ensure 'data/train.jsonl' exists, or set REGENERATE_DATA = True"
+        )
+    
     # Resolve provider at runtime to pick up config changes
     if provider is None:
         provider = config.DATA_GEN_PROVIDER

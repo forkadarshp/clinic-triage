@@ -285,7 +285,7 @@ async def generate_training_data_async(
     num_examples: int = config.NUM_TRAINING_EXAMPLES,
     output_path: Optional[Path] = None,
     api_key: Optional[str] = None,
-    provider: str = config.DATA_GEN_PROVIDER,
+    provider: Optional[str] = None,
     max_concurrent: int = 10,  # Faster data generation
 ) -> list[dict]:
     """
@@ -320,6 +320,10 @@ async def generate_training_data_async(
         except Exception as e:
             print(f"⚠️  Error reading existing data: {e}, regenerating...")
     
+    # Resolve provider at runtime to pick up config changes
+    if provider is None:
+        provider = config.DATA_GEN_PROVIDER
+
     if api_key is None:
         env_key = "OPENAI_API_KEY" if provider == "openai" else "GOOGLE_API_KEY"
         api_key = os.environ.get(env_key)
@@ -375,7 +379,7 @@ def generate_training_data(
     num_examples: int = config.NUM_TRAINING_EXAMPLES,
     output_path: Optional[Path] = None,
     api_key: Optional[str] = None,
-    provider: str = config.DATA_GEN_PROVIDER,
+    provider: Optional[str] = None,
     max_concurrent: int = 10,  # Faster data generation
 ) -> list[dict]:
     """

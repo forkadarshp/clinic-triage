@@ -1,12 +1,12 @@
 # Clinical Triage Router - Take-Home Challenge
 
-## 📧 Original Email from Bharat @ Indhic AI
+## 📧 Original Email from [Recruiter] @ [Company]
 
 ---
 
 **Subject**: Consultant AI Engineer Role - Technical Challenge
 
-Hi Adarsh,
+Hi [Candidate],
 
 Thanks for your interest in the Consultant AI Engineer role.
 
@@ -163,8 +163,8 @@ Based on the challenge description, they're evaluating:
 Looking forward to seeing your code.
 
 Best,  
-**Bharat**  
-Indhic AI
+**[Recruiter]**  
+[Company]
 
 ---
 

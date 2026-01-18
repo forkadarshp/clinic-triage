@@ -31,7 +31,7 @@ LOAD_IN_4BIT = True
 # =============================================================================
 LORA_R = 16
 LORA_ALPHA = 32  # Match r for function calling tasks (research-backed)
-LORA_DROPOUT = 0.0  # Favor memorization for max routing accuracy on small data
+LORA_DROPOUT = 0.05 # Favor memorization for max routing accuracy on small data
 LORA_TARGET_MODULES = [
     "q_proj", "k_proj", "v_proj", "o_proj",
     "gate_proj", "up_proj", "down_proj",
@@ -52,11 +52,11 @@ SEED = 42
 # =============================================================================
 # Data Generation
 # =============================================================================
-NUM_TRAINING_EXAMPLES = 200  # More training data for better accuracy
+NUM_TRAINING_EXAMPLES = 75  # Task requirement: 50-100 examples
 GEMINI_MODEL = "gemini-1.5-flash"
 OPENAI_MODEL = "gpt-4.1"
 OPENAI_REASONING_EFFORT = "medium"  # "none", "low", "medium", "high"
-DATA_GEN_PROVIDER = "openai"  # "gemini" or "openai"
+DATA_GEN_PROVIDER = "gemini"  # Zero-cost, free tier API
 
 # =============================================================================
 # Agent Configuration

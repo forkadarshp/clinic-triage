@@ -52,8 +52,8 @@ SEED = 42
 # =============================================================================
 # Data Generation
 # =============================================================================
-NUM_TRAINING_EXAMPLES = 75  # Task requirement: 50-100 examples
-GEMINI_MODEL = "gemini-1.5-flash"
+NUM_TRAINING_EXAMPLES = 100  # More training data for better accuracy
+GEMINI_MODEL = "gemini-2.5-flash"
 OPENAI_MODEL = "gpt-4.1"
 OPENAI_REASONING_EFFORT = "medium"  # "none", "low", "medium", "high"
 DATA_GEN_PROVIDER = "gemini"  # Zero-cost, free tier API

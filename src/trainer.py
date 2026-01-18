@@ -153,7 +153,7 @@ def train(
         logging_steps=10,
         save_strategy="epoch",
         seed=config.SEED,
-        bf16=True,  # Better numeric stability for JSON token generation
+        fp16=True,  # T4 doesn't support bf16, needs Ampere+ GPU
         optim="adamw_8bit",
         max_steps=config.MAX_STEPS,
         dataloader_num_workers=2,  # Parallel data loading

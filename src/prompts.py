@@ -20,9 +20,12 @@ JSON: {"tool": "routine_care_referral", "arguments": {"type": "<visit type>", "s
 
 OUTPUT: Respond with ONLY the JSON object, no other text."""
 
+# Escape braces for use inside .format() templates
+_SYSTEM_PROMPT_FORMAT = SYSTEM_PROMPT.replace("{", "{{").replace("}", "}}")
+
 PROMPT_TEMPLATE = (
     "<|im_start|>system\n"
-    f"{SYSTEM_PROMPT}\n"
+    f"{_SYSTEM_PROMPT_FORMAT}\n"
     "<|im_end|>\n"
     "<|im_start|>user\n"
     "{instruction}\n"

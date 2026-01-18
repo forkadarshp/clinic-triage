@@ -168,7 +168,7 @@ def train(
         args=training_args,
         dataset_text_field="text",
         max_seq_length=config.MAX_SEQ_LENGTH,
-        packing=True,
+        packing=False,  # Disable packing - important for structured output learning
     )
     
     # Train

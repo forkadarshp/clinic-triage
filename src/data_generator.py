@@ -305,7 +305,6 @@ async def generate_training_data_async(
     import os
     
     output_path = output_path or config.TRAIN_DATA_PATH
-    print(f"DEBUG: Starting generation. Provider: {provider}, Model: {config.GEMINI_MODEL}")
     
     # Check if existing data file exists and has enough examples
     if output_path.exists():
@@ -344,8 +343,6 @@ async def generate_training_data_async(
 
         if not api_key:
             raise ValueError(f"Set {env_key} environment variable, add it to Colab Secrets, or pass api_key argument")
-        
-        print(f"DEBUG: API Key found for {provider}: {'Yes' if api_key else 'No'} (starts with {api_key[:4]}...)")
     
     # Build task list
     examples_per_prompt = max(1, num_examples // len(GENERATION_PROMPTS))
@@ -396,7 +393,6 @@ def generate_training_data(
     
     Handles running in notebooks (with nest_asyncio) or scripts.
     """
-    print("DEBUG: generate_training_data wrapper called")
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:

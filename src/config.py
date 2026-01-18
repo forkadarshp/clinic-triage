@@ -52,11 +52,11 @@ SEED = 42
 # =============================================================================
 # Data Generation
 # =============================================================================
-NUM_TRAINING_EXAMPLES = 100  # More training data for better accuracy
+NUM_TRAINING_EXAMPLES = 100  # Task requirement: 50-100 examples
 GEMINI_MODEL = "gemini-2.5-flash"
 OPENAI_MODEL = "gpt-4.1"
 OPENAI_REASONING_EFFORT = "medium"  # "none", "low", "medium", "high"
-DATA_GEN_PROVIDER = "openai"  # Switched back to OpenAI per user request
+DATA_GEN_PROVIDER = "openai" 
 
 # =============================================================================
 # Agent Configuration

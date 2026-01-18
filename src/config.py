@@ -14,7 +14,7 @@ DATA_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 TRAIN_DATA_PATH = DATA_DIR / "train.jsonl"
-TEST_DATA_PATH = DATA_DIR / "test.jsonl"
+TEST_DATA_PATH = DATA_DIR / "eval.jsonl"  # 10 held-out test cases
 
 # =============================================================================
 # Model Configuration

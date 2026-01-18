@@ -56,7 +56,7 @@ NUM_TRAINING_EXAMPLES = 100  # More training data for better accuracy
 GEMINI_MODEL = "gemini-2.5-flash"
 OPENAI_MODEL = "gpt-4.1"
 OPENAI_REASONING_EFFORT = "medium"  # "none", "low", "medium", "high"
-DATA_GEN_PROVIDER = "gemini"  # Zero-cost, free tier API
+DATA_GEN_PROVIDER = "openai"  # Switched back to OpenAI per user request
 
 # =============================================================================
 # Agent Configuration

@@ -344,6 +344,8 @@ async def generate_training_data_async(
 
         if not api_key:
             raise ValueError(f"Set {env_key} environment variable, add it to Colab Secrets, or pass api_key argument")
+        
+        print(f"DEBUG: API Key found for {provider}: {'Yes' if api_key else 'No'} (starts with {api_key[:4]}...)")
     
     # Build task list
     examples_per_prompt = max(1, num_examples // len(GENERATION_PROMPTS))

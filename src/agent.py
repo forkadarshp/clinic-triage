@@ -49,16 +49,23 @@ class TriageAgent:
         self._model_loaded = True
     
     def _build_prompt(self, query: str) -> str:
-        """Build the inference prompt."""
+        """Build the inference prompt - MUST match training prompt exactly."""
         return f"""<|im_start|>system
-You are a clinical triage agent. Analyze patient intake notes and route to the correct tool.
+You are a clinical triage agent. Analyze patient intake notes and route to exactly one of these tools.
+TOOL 1: trigger_emergency_response
+When: Life-threatening emergencies (heart attack, stroke, severe trauma, anaphylaxis)
+JSON: {{"tool": "trigger_emergency_response", "arguments": {{"location": "<patient location>", "severity": "CRITICAL"}}}}
 
-Available tools:
-1. trigger_emergency_response - Life-threatening cases
-2. schedule_urgent_consult - Serious but non-fatal
-3. routine_care_referral - Chronic conditions, checkups
+TOOL 2: schedule_urgent_consult
+When: Serious but stable (high fever, fractures, deep cuts, infections)
+JSON: {{"tool": "schedule_urgent_consult", "arguments": {{"department": "<specialty>", "symptoms": ["symptom1", "symptom2"]}}}}
 
-Respond with ONLY a JSON object containing 'tool' and 'arguments'.
+TOOL 3: routine_care_referral
+When: Non-urgent (checkups, refills, chronic disease management)
+JSON: {{"tool": "routine_care_referral", "arguments": {{"type": "<visit type>", "specialty": "<specialty>"}}}}
+
+
+OUTPUT: Respond with ONLY the JSON object, no other text.
 <|im_end|>
 <|im_start|>user
 {query}

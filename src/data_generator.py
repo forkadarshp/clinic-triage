@@ -286,7 +286,8 @@ async def generate_training_data_async(
     output_path: Optional[Path] = None,
     api_key: Optional[str] = None,
     provider: Optional[str] = None,
-    max_concurrent: int = 10,  # Faster data generation
+    max_concurrent: int = 2,  # Reduced for stability
+    force_use_existing: bool = False,
 ) -> list[dict]:
     """
     Generate synthetic training data asynchronously.
@@ -304,12 +305,17 @@ async def generate_training_data_async(
     import os
     
     output_path = output_path or config.TRAIN_DATA_PATH
+    print(f"DEBUG: Starting generation. Provider: {provider}, Model: {config.GEMINI_MODEL}")
     
     # Check if existing data file exists and has enough examples
     if output_path.exists():
         try:
             existing_data = load_training_data(output_path)
             valid_existing = [ex for ex in existing_data if _validate_example(ex)]
+            
+            if force_use_existing:
+                print(f"✅ Force using existing data: {len(valid_existing)} examples")
+                return valid_existing
             
             if len(valid_existing) >= num_examples:
                 print(f"✅ Found existing training data: {len(valid_existing)} examples (need {num_examples})")
@@ -380,13 +386,15 @@ def generate_training_data(
     output_path: Optional[Path] = None,
     api_key: Optional[str] = None,
     provider: Optional[str] = None,
-    max_concurrent: int = 10,  # Faster data generation
+    max_concurrent: int = 2,  # Reduced for stability
+    force_use_existing: bool = False,
 ) -> list[dict]:
     """
     Sync wrapper for generate_training_data_async.
     
     Handles running in notebooks (with nest_asyncio) or scripts.
     """
+    print("DEBUG: generate_training_data wrapper called")
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -410,6 +418,7 @@ def generate_training_data(
                 api_key=api_key,
                 provider=provider,
                 max_concurrent=max_concurrent,
+                force_use_existing=force_use_existing,
             )
         )
     
@@ -421,6 +430,7 @@ def generate_training_data(
             api_key=api_key,
             provider=provider,
             max_concurrent=max_concurrent,
+            force_use_existing=force_use_existing,
         )
     )
 

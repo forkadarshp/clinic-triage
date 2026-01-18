@@ -153,9 +153,12 @@ def train(
         logging_steps=10,
         save_strategy="epoch",
         seed=config.SEED,
-        fp16=True,
+        bf16=True,  # Better numeric stability for JSON token generation
         optim="adamw_8bit",
         max_steps=config.MAX_STEPS,
+        dataloader_num_workers=2,  # Parallel data loading
+        group_by_length=True,  # Batch similar-length sequences together
+        lr_scheduler_type="cosine",  # Smooth learning rate decay
     )
     
     trainer = SFTTrainer(

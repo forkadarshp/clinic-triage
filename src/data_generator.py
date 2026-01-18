@@ -286,7 +286,7 @@ async def generate_training_data_async(
     output_path: Optional[Path] = None,
     api_key: Optional[str] = None,
     provider: str = config.DATA_GEN_PROVIDER,
-    max_concurrent: int = 5,
+    max_concurrent: int = 10,  # Faster data generation
 ) -> list[dict]:
     """
     Generate synthetic training data asynchronously.
@@ -361,7 +361,7 @@ def generate_training_data(
     output_path: Optional[Path] = None,
     api_key: Optional[str] = None,
     provider: str = config.DATA_GEN_PROVIDER,
-    max_concurrent: int = 5,
+    max_concurrent: int = 10,  # Faster data generation
 ) -> list[dict]:
     """
     Sync wrapper for generate_training_data_async.

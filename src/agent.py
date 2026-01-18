@@ -120,19 +120,22 @@ Respond with ONLY a JSON object containing 'tool' and 'arguments'.
         return None
     
     def _generate(self, prompt: str) -> str:
-        """Generate model response."""
+        """Generate model response with optimized inference."""
+        import torch
+        
         if not self._model_loaded:
             raise RuntimeError("Model not loaded. Call load_model() first.")
         
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
         
-        outputs = self.model.generate(
-            **inputs,
-            max_new_tokens=config.GENERATION_MAX_TOKENS,
-            temperature=config.GENERATION_TEMPERATURE,
-            do_sample=True,
-            pad_token_id=self.tokenizer.eos_token_id,
-        )
+        with torch.inference_mode():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=config.GENERATION_MAX_TOKENS,
+                do_sample=False,  # Greedy decoding for deterministic JSON
+                use_cache=True,  # Enable KV cache for faster generation
+                pad_token_id=self.tokenizer.eos_token_id,
+            )
         
         response = self.tokenizer.decode(
             outputs[0][inputs["input_ids"].shape[1]:],

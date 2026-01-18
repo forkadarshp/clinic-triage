@@ -29,8 +29,8 @@ LOAD_IN_4BIT = True
 # =============================================================================
 # LoRA Configuration
 # =============================================================================
-LORA_R = 16
-LORA_ALPHA = 16
+LORA_R = 32
+LORA_ALPHA = 64  # Common ratio: alpha = 2*r for more influence
 LORA_DROPOUT = 0.0
 LORA_TARGET_MODULES = [
     "q_proj", "k_proj", "v_proj", "o_proj",
@@ -40,10 +40,10 @@ LORA_TARGET_MODULES = [
 # =============================================================================
 # Training Hyperparameters
 # =============================================================================
-NUM_TRAIN_EPOCHS = 3
+NUM_TRAIN_EPOCHS = 5  # More epochs for limited data
 LEARNING_RATE = 2e-4
-BATCH_SIZE = 4
-GRADIENT_ACCUMULATION_STEPS = 4
+BATCH_SIZE = 16  # Maximize GPU utilization (was 4)
+GRADIENT_ACCUMULATION_STEPS = 2  # Effective batch = 16*2 = 32
 WARMUP_STEPS = 10
 MAX_STEPS = -1  # -1 = use epochs
 WEIGHT_DECAY = 0.01
@@ -52,7 +52,7 @@ SEED = 42
 # =============================================================================
 # Data Generation
 # =============================================================================
-NUM_TRAINING_EXAMPLES = 100
+NUM_TRAINING_EXAMPLES = 200  # More training data for better accuracy
 GEMINI_MODEL = "gemini-1.5-flash"
 OPENAI_MODEL = "gpt-4.1"
 OPENAI_REASONING_EFFORT = "medium"  # "none", "low", "medium", "high"
@@ -63,7 +63,7 @@ DATA_GEN_PROVIDER = "openai"  # "gemini" or "openai"
 # =============================================================================
 MAX_RETRIES = 3
 GENERATION_MAX_TOKENS = 256
-GENERATION_TEMPERATURE = 0.1  # Low temp for consistent JSON output
+GENERATION_TEMPERATURE = 0.0  # Greedy decoding for deterministic JSON output
 
 # =============================================================================
 # Tool Names (must match exactly)

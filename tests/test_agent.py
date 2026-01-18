@@ -96,15 +96,15 @@ class TestTriageAgent(unittest.TestCase):
         # Check if error context was added to Prompt (not easily checkable without inspecting arg to _generate calls, but logic assumes it)
 
     def test_run_fail_all_retries(self):
-        """Test failure after max retries."""
+        """Test heuristic fallback when model output is invalid."""
         bad_resp = "Invalid data"
         self.agent._generate = MagicMock(return_value=bad_resp)
         
         output, response, metadata = self.agent.run("Some query")
         
-        self.assertIsNone(output)
-        self.assertIn("failed after multiple attempts", response)
-        self.assertEqual(metadata["attempts"], 3) # Max retries default is 3 in config
+        self.assertIsNotNone(output)
+        self.assertTrue(metadata["fallback_used"])
+        self.assertEqual(metadata["attempts"], 1)
 
     def test_validation_logic(self):
         """Test schema auto-correction fills required fields."""

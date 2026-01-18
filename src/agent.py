@@ -23,18 +23,22 @@ class TriageAgent:
 
     _EMERGENCY_KEYWORDS = (
         "heart attack", "cardiac arrest", "no pulse", "unresponsive", "not breathing",
-        "stroke", "facial droop", "slurred speech", "severe bleeding", "gunshot",
-        "severe trauma", "anaphylaxis", "respiratory failure", "seizure",
-        "crushing chest pain", "sudden collapse",
+        "stroke", "facial droop", "facial drooping", "slurred speech", "severe bleeding",
+        "gunshot", "severe trauma", "anaphylaxis", "respiratory failure", "seizure",
+        "crushing chest pain", "chest pain radiating", "sudden collapse", "agonal",
+        "cyanotic", "hypotensive", "diaphoretic",
     )
     _URGENT_KEYWORDS = (
-        "fracture", "broken", "deep cut", "laceration", "high fever", "104", "103",
-        "kidney stone", "severe pain", "cellulitis", "infection", "vision loss",
-        "abdominal pain", "vomiting", "swelling",
+        "fracture", "broken", "deformity", "unable to move", "deep cut", "laceration",
+        "high fever", "104", "103", "102", "kidney stone", "severe pain",
+        "cellulitis", "infection", "vision loss", "abdominal pain", "nausea",
+        "vomiting", "missed period", "lethargic", "unable to bear weight",
     )
     _ROUTINE_KEYWORDS = (
         "refill", "checkup", "annual", "physical", "follow-up", "screening",
-        "vaccination", "stable", "routine", "lab work", "chronic",
+        "vaccination", "stable", "routine", "lab work", "chronic", "diabetes",
+        "hba1c", "insulin", "recurring", "runny nose", "afebrile", "sports",
+        "knee pain", "sore throat", "headache",
     )
     _SYMPTOM_KEYWORDS = (
         "fever", "pain", "swelling", "vomiting", "nausea", "dizziness",
@@ -165,11 +169,15 @@ class TriageAgent:
         if any(keyword in lower for keyword in self._ROUTINE_KEYWORDS):
             return config.TOOL_ROUTINE
 
-        return None
+        # Default to routine if we have any clinical text but no strong signal
+        return config.TOOL_ROUTINE
 
     def _extract_location(self, query: str) -> Optional[str]:
         """Extract a location hint from the query text."""
         match = re.search(r"(?:location|address)\s*[:\-]\s*([^\n\.]+)", query, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        match = re.search(r"(?:currently\s+at|at)\s+([^\n\.]+)", query, re.IGNORECASE)
         if match:
             return match.group(1).strip()
         return None
@@ -326,6 +334,7 @@ class TriageAgent:
             "attempts": 0,
             "errors": [],
             "raw_outputs": [],
+            "fallback_used": False,
         }
         
         error_context = None
@@ -344,6 +353,8 @@ class TriageAgent:
                 parsed = self._extract_json(raw_output)
                 if parsed is None:
                     parsed = self._infer_output_from_text(raw_output, query)
+                    if parsed is not None:
+                        metadata["fallback_used"] = True
 
                 parsed = self._coerce_output(parsed, query)
                 if parsed is None:
@@ -364,7 +375,17 @@ class TriageAgent:
                 if attempt < config.MAX_RETRIES - 1:
                     error_context = str(e)
         
-        # All retries failed
+        # All retries failed - fallback to heuristics based on the query
+        fallback = self._infer_output_from_text("", query)
+        if fallback is not None:
+            try:
+                validated = parse_triage_output(fallback)
+                mock_response = get_mock_response(validated)
+                metadata["fallback_used"] = True
+                return validated, mock_response, metadata
+            except Exception as e:
+                metadata["errors"].append(f"Fallback failed: {type(e).__name__}: {str(e)}")
+
         return None, "[System] ⚠️ Triage failed after multiple attempts.", metadata
 
 

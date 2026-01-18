@@ -303,6 +303,23 @@ async def generate_training_data_async(
     """
     import os
     
+    output_path = output_path or config.TRAIN_DATA_PATH
+    
+    # Check if existing data file exists and has enough examples
+    if output_path.exists():
+        try:
+            existing_data = load_training_data(output_path)
+            valid_existing = [ex for ex in existing_data if _validate_example(ex)]
+            
+            if len(valid_existing) >= num_examples:
+                print(f"✅ Found existing training data: {len(valid_existing)} examples (need {num_examples})")
+                print(f"📁 Using existing data from {output_path}")
+                return valid_existing[:num_examples]  # Return requested amount
+            else:
+                print(f"⚠️  Existing data has only {len(valid_existing)} examples (need {num_examples}), regenerating...")
+        except Exception as e:
+            print(f"⚠️  Error reading existing data: {e}, regenerating...")
+    
     if api_key is None:
         env_key = "OPENAI_API_KEY" if provider == "openai" else "GOOGLE_API_KEY"
         api_key = os.environ.get(env_key)
@@ -317,8 +334,6 @@ async def generate_training_data_async(
 
         if not api_key:
             raise ValueError(f"Set {env_key} environment variable, add it to Colab Secrets, or pass api_key argument")
-    
-    output_path = output_path or config.TRAIN_DATA_PATH
     
     # Build task list
     examples_per_prompt = max(1, num_examples // len(GENERATION_PROMPTS))
